@@ -10,12 +10,22 @@
 #include <sys/inotify.h>
 #include <libgen.h>
 #include <stdlib.h>
+#include <signal.h>
 
 #define MAX_EVENTS 1024  /* Maximum number of events to process*/
 #define LEN_NAME 16  /* Assuming that the length of the filename won't exceed 16 bytes*/
 #define EVENT_SIZE  sizeof(struct inotify_event) /*size of one event*/
 #define BUF_LEN     MAX_EVENTS * (EVENT_SIZE + LEN_NAME)
 
+
+
+void sig_handler(int signo)
+{
+    if (signo == SIGINT) {
+        printf("recived SIGINT\n");
+        exit(1);
+    }
+}
 
 
 void tail_(const char *filename, void *py_cb_func)
@@ -30,6 +40,7 @@ void tail_(const char *filename, void *py_cb_func)
     strcpy(watch_dir, filename);
     dirname(watch_dir);
 
+    printf("Watching directory: %s\n", watch_dir);
     fd = inotify_init();
     if (inotify_add_watch(fd, watch_dir, IN_MODIFY) < 0) {
         printf("pytail watch error: %s\n", watch_dir);
@@ -72,12 +83,10 @@ void tail_(const char *filename, void *py_cb_func)
 
 #ifndef DEBUG_
 
-// Function 1: A simple 'hello world' function
 static PyObject *tail(PyObject *self, PyObject *args)
 {
     char *file_name;
     PyObject *callback_func;
-    // PyObject *cb_arglist;
 
     if(!PyArg_ParseTuple(args, "sO", &file_name, &callback_func)) {
         printf("file name should be string\n");
@@ -116,6 +125,9 @@ static struct PyModuleDef pytail = {
 // Initializes our module using our above struct
 PyMODINIT_FUNC PyInit_pytail(void)
 {
+    if (signal(SIGINT, sig_handler) == SIG_ERR) {
+        printf("Error allocating signal handler\n");
+    }
     return PyModule_Create(&pytail);
 }
 
